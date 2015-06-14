@@ -10,7 +10,7 @@ module.exports = {
 		throw "Object is null!";
 	}
   },
-  encryptData : function name(source, key) {
+  encryptData : function name(source, key, padding) {
 	if(key){
 		for(var prop in source){
 			if(source.hasOwnProperty(prop)){

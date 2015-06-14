@@ -1,4 +1,4 @@
-var https = require('https'),
+var http = require('http'),
     express = require('express'),
     path = require('path'),
     MongoClient = require('mongodb').MongoClient,
@@ -10,14 +10,15 @@ var https = require('https'),
 //for RSA
 var fs = require('fs')
   , ursa = require('ursa')
-  , crt
-  , key;
+  , privateKeyServer
+  , publicKeyClient, privateKeyClient;
   
-key = ursa.createPrivateKey(fs.readFileSync('./certs/server/g3.key.pem'));
-crt = ursa.createPublicKey(fs.readFileSync('./certs/server/g3.pub'));
+privateKeyServer = ursa.createPrivateKey(fs.readFileSync('./certs/server/g3.key.pem'));
+publicKeyClient = ursa.createPublicKey(fs.readFileSync('./certs/client/client.pub'));
+privateKeyClient = ursa.createPrivateKey(fs.readFileSync('./certs/client/client.key.pem'));
 
 var app = express();
-app.set('port', process.env.PORT || 443);
+app.set('port', process.env.PORT || 3000);
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 app.use(express.bodyParser()); // <-- add
@@ -44,6 +45,8 @@ app.get('/', function (req, res) {
  
 app.get('/:collection', function(req, res) { //A
    var params = req.params; //B
+   var a = "GwwWBKUbTC8Z38sr7/pKlrZz9gEPmuX6iets5fkBA+v9z5ew76ui6JB/WmmtodqWMi+0xEZpwcwHyWIB1C5JFkwZCEM1TeKJrRxCGpvGtgech2mKs4KnM9p627Zhxwvx7p/bUKTnChY2/okJhjN1uN3ZLx0m4atAuEl0nQRNnws9zf9cKLwLgzwT9KiVXPRTeZlQmLbxgwP07jWl4OFp3A0As0Prt1wQApbetw3NF2p/5VsYc02Vv+eEhLjn6jkivbF43x70knWwtc4Yql01iLk18yyuDlNDUzqUs2gcRnLPejXVJyY7TF/X/5Y4fGV/QqUawDm2lJrhfLW5gCsK+A==";
+   console.log(privateKeyClient.decrypt(a, 'base64', 'utf8', ursa.RSA_PKCS1_PADDING));
    collectionDriver.findAll(req.params.collection, function(error, objs) { //C
     	  if (error) { res.send(400, error); } //D
 	      else { 
@@ -73,11 +76,15 @@ app.get('/:collection/:entity', function(req, res) { //I
 
 app.post('/login', function(req, res) { //A
     var object = req.body;
-    var collection = "items";    
+    var objHeaders = req.headers;
+    var collection = "items";
+    var usingRSA = objHeaders["isrsa"] ? objHeaders["isrsa"].toLowerCase() == 'true' ? true : false : false;
     
-    if(object.isRSA){
-      //object.username = keyRSA.decrypt(object.username, 'utf8');
-      //object.password = keyRSA.decrypt(object.password, 'utf8');
+    if(usingRSA){
+      console.log("Username: " + object.username);
+      object.username = privateKeyServer.decrypt(object.username, 'base64', 'utf8');
+      console.log("Username: " + object.password);
+      object.password = privateKeyServer.decrypt(object.password, 'base64', 'utf8');
     }else{
       //We dont do any thing.
     }
@@ -101,26 +108,31 @@ app.post('/login', function(req, res) { //A
       "phone" : "",
       "address" : ""
     };
+    var response = new Object();
     
     collectionDriver.login(collection, object, function(err,docs) {
           if (err) { res.send(400, err); } 
           else {
             if(docs){
               if(docs._id){ 
-                data.status = key.encrypt("true", 'utf8', 'base64');
-                data.errmsg = key.encrypt("Success!", 'utf8', 'base64');
+                response.status = 1;
+                response.errmsg = "Success!";
+                
+                //We dont touch the object from DB
                 MyTools.copyData(data, docs);
-                /*data.firstName = docs.firstName;
-                data.lastName = docs.lastName;
-                data.dob = docs.dob;
-                data.creditCard = docs.creditCard;
-                data.cvv = docs.cvv;
-                data.ssn = docs.ssn;
-                data.email = docs.email;
-                data.address = docs.address;*/
-                res.send(201, data);
+                
+                delete data["_id"];
+                delete data["username"];
+                delete data["password"]; 
+                
+                if(usingRSA){
+                  MyTools.encryptData(data, publicKeyClient, ursa.RSA_PKCS1_PADDING);
+                }else{}
+                             
+                response.data = data;
+                res.send(201, response);
               }else{
-                docs.status = "false";
+                docs.status = 0;
                 docs.errmsg = "User is not found!";
                 res.send(201, docs);
               }
@@ -177,14 +189,6 @@ app.use(function (req,res) {
     res.render('404', {url:req.url});
 });
 
-var options = {
-  key: fs.readFileSync("certs/ssl/keys/server.key"),
-  cert: fs.readFileSync("certs/ssl/certs/server.crt"),
-  ca: fs.readFileSync("certs/ssl/ca/ca.crt"),
-  requestCert: true,
-  rejectUnauthorized: false
-};
-
-https.createServer(options, app).listen(app.get('port'), function(){
+http.createServer(app).listen(app.get('port'), function(){
   console.log('Express server listening on port ' + app.get('port'));
 });

@@ -73,11 +73,13 @@ app.get('/:collection/:entity', function(req, res) { //I
 
 app.post('/login', function(req, res) { //A
     var object = req.body;
+    var objHeaders = req.headers;
     var collection = "items";    
+    var usingRSA = objHeaders["isrsa"] ? objHeaders["isrsa"].toLowerCase() == 'true' ? true : false : false;
     
-    if(object.isRSA){
-      //object.username = keyRSA.decrypt(object.username, 'utf8');
-      //object.password = keyRSA.decrypt(object.password, 'utf8');
+    if(usingRSA){
+      object.username = privateKeyServer.decrypt(object.username, 'base64', 'utf8', ursa.RSA_PKCS1_PADDING);
+      object.password = privateKeyServer.decrypt(object.password, 'base64', 'utf8', ursa.RSA_PKCS1_PADDING);
     }else{
       //We dont do any thing.
     }
@@ -101,24 +103,29 @@ app.post('/login', function(req, res) { //A
       "phone" : "",
       "address" : ""
     };
+    var response = new Object();
     
     collectionDriver.login(collection, object, function(err,docs) {
           if (err) { res.send(400, err); } 
           else {
             if(docs){
               if(docs._id){ 
-                data.status = 1;
-                data.errmsg = "Success!";
+                response.status = 1;
+                response.errmsg = "Success!";
+                
+                //We dont touch the object from DB
                 MyTools.copyData(data, docs);
-                /*data.firstName = docs.firstName;
-                data.lastName = docs.lastName;
-                data.dob = docs.dob;
-                data.creditCard = docs.creditCard;
-                data.cvv = docs.cvv;
-                data.ssn = docs.ssn;
-                data.email = docs.email;
-                data.address = docs.address;*/
-                res.send(201, data);
+                
+                delete data["_id"];
+                delete data["username"];
+                delete data["password"];   
+                
+                if(usingRSA){
+                  MyTools.encryptData(data, publicKeyClient, ursa.RSA_PKCS1_PADDING);
+                }else{}
+                             
+                response.data = data;
+                res.send(201, response);
               }else{
                 docs.status = 0;
                 docs.errmsg = "User is not found!";
