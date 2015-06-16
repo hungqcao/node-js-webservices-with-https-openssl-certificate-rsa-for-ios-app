@@ -45,8 +45,7 @@ app.get('/', function (req, res) {
  
 app.get('/:collection', function(req, res) { //A
    var params = req.params; //B
-   var a = "GwwWBKUbTC8Z38sr7/pKlrZz9gEPmuX6iets5fkBA+v9z5ew76ui6JB/WmmtodqWMi+0xEZpwcwHyWIB1C5JFkwZCEM1TeKJrRxCGpvGtgech2mKs4KnM9p627Zhxwvx7p/bUKTnChY2/okJhjN1uN3ZLx0m4atAuEl0nQRNnws9zf9cKLwLgzwT9KiVXPRTeZlQmLbxgwP07jWl4OFp3A0As0Prt1wQApbetw3NF2p/5VsYc02Vv+eEhLjn6jkivbF43x70knWwtc4Yql01iLk18yyuDlNDUzqUs2gcRnLPejXVJyY7TF/X/5Y4fGV/QqUawDm2lJrhfLW5gCsK+A==";
-   console.log(privateKeyClient.decrypt(a, 'base64', 'utf8', ursa.RSA_PKCS1_PADDING));
+   
    collectionDriver.findAll(req.params.collection, function(error, objs) { //C
     	  if (error) { res.send(400, error); } //D
 	      else { 

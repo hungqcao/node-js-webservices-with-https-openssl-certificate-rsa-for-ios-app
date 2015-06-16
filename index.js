@@ -78,8 +78,8 @@ app.post('/login', function(req, res) { //A
     var usingRSA = objHeaders["isrsa"] ? objHeaders["isrsa"].toLowerCase() == 'true' ? true : false : false;
     
     if(usingRSA){
-      object.username = privateKeyServer.decrypt(object.username, 'base64', 'utf8', ursa.RSA_PKCS1_PADDING);
-      object.password = privateKeyServer.decrypt(object.password, 'base64', 'utf8', ursa.RSA_PKCS1_PADDING);
+      object.username = privateKeyServer.decrypt(object.username, 'base64', 'utf8');
+      object.password = privateKeyServer.decrypt(object.password, 'base64', 'utf8');
     }else{
       //We dont do any thing.
     }
